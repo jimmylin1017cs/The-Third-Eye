@@ -144,6 +144,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     int j;
 
     // -----------------------------------------
+    // catch Ctrl+C and call intHandler function
     signal(SIGINT, intHandler);
     sortInitialization(l.w*l.h*l.n, l.classes, 1);
     // -----------------------------------------
@@ -183,6 +184,14 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         cvMoveWindow("Demo", 0, 0);
         cvResizeWindow("Demo", 1352, 1013);
     }*/
+
+    // --------------------------------------------
+    if(!prefix){
+        cvNamedWindow("Demo", CV_WINDOW_NORMAL); 
+        cvMoveWindow("Demo", 0, 0);
+        cvResizeWindow("Demo", 800, 600);
+    }
+    // --------------------------------------------
 
     double before = get_wall_time();
 
