@@ -13,39 +13,11 @@
 extern "C" {
 #endif
 
+static PyObject *pModule, *pDict, *pFunc, *pInstance;
 static int first_called = 1;
 static cv::Mat m, frame;
 
-IplImage *image_to_ipl(image im)
-{
-    int x,y,c;
-    IplImage *disp = cvCreateImage(cvSize(im.w,im.h), IPL_DEPTH_8U, im.c);
-    int step = disp->widthStep;
-    for(y = 0; y < im.h; ++y){
-        for(x = 0; x < im.w; ++x){
-            for(c= 0; c < im.c; ++c){
-                float val = im.data[c*im.h*im.w + y*im.w + x];
-                disp->imageData[y*step + x*im.c + c] = (unsigned char)(val*255);
-            }
-        }
-    }
-    return disp;
-}
-
-cv::Mat image_to_mat(image im)
-{
-    image copy = copy_image(im);
-    constrain_image(copy);
-    if(im.c == 3) rgbgr_image(copy);
-
-    IplImage *ipl = image_to_ipl(copy);
-    cv::Mat m = cv::cvarrToMat(ipl, true);
-    cvReleaseImage(&ipl);
-    free_image(copy);
-    return m;
-}
-
-void iot_talk(image im, person_box *person_boxes, int person_amount)
+/*void iot_talk(image im, person_box *person_boxes, int person_amount)
 {
     std::vector<person_box> boxes;
     //boxes.clear();
@@ -73,8 +45,7 @@ void iot_talk(image im, person_box *person_boxes, int person_amount)
     }
     
     iot_send(outbuf, boxes);
-
-}
+}*/
 
 
 void iot_init()
@@ -94,10 +65,60 @@ void iot_init()
     pDict = PyModule_GetDict(pModule);
     CHECK_PYTHON_NULL(pDict)
 
-    pFunc = PyDict_GetItemString(pDict, "send_frame_to_iottalk");
+    pFunc = PyDict_GetItemString(pDict, "send_boxes_to_iottalk");
     CHECK_PYTHON_NULL(pFunc)
 }
 
+void iot_talk_send(std::vector<person_sort_det> &person_sort_dets, int &frame_stamp)
+{
+    if(first_called)
+    {
+        first_called = 0;
+        iot_init();
+    }
+
+    int sort_dets_size = person_sort_dets.size();
+
+    PyObject *pBoxDict[sort_dets_size]; // store all boxes information
+    for(int i = 0; i < sort_dets_size; i++) pBoxDict[i] = PyDict_New();
+
+    PyObject *pBoxList  = PyList_New(sort_dets_size); // store all box dictionaries
+    
+    PyObject *pArgList = PyTuple_New(1); // arguments for function
+
+    // create python dictionary with box information
+    for(int i = 0; i < sort_dets_size; i++)
+    {
+        PyDict_SetItem(pBoxDict[i], PyString_FromString("stamp"), PyInt_FromLong(frame_stamp));
+        PyDict_SetItem(pBoxDict[i], PyString_FromString("id"), PyInt_FromLong(person_sort_dets[i].id));
+        PyDict_SetItem(pBoxDict[i], PyString_FromString("x1"), PyInt_FromLong(person_sort_dets[i].x1));
+        PyDict_SetItem(pBoxDict[i], PyString_FromString("y1"), PyInt_FromLong(person_sort_dets[i].y1));
+        PyDict_SetItem(pBoxDict[i], PyString_FromString("x2"), PyInt_FromLong(person_sort_dets[i].x2));
+        PyDict_SetItem(pBoxDict[i], PyString_FromString("y2"), PyInt_FromLong(person_sort_dets[i].y2));
+    }
+
+    //std::cout<<"pBoxList"<<std::endl;
+
+    // put all dictionaries into list
+    for(int i = 0; i < sort_dets_size; i++)
+    {
+        PyList_SetItem(pBoxList, i, pBoxDict[i]);
+    }
+
+    PyTuple_SetItem(pArgList, 0, pBoxList); // put in argument
+
+    if(PyCallable_Check(pFunc))
+    {
+        PyObject_CallObject(pFunc, pArgList);
+    }
+    else
+    {
+        PyErr_Print();
+    }
+}
+
+
+/*
 void iot_send(std::vector<unsigned char> &outbuf, std::vector<person_box> &boxes)
 {
     PyObject *pFrameList  = PyList_New(outbuf.size()); // store frame undigned char int
@@ -151,6 +172,7 @@ void iot_send(std::vector<unsigned char> &outbuf, std::vector<person_box> &boxes
         PyErr_Print();
     }
 }
+*/
 
 #ifdef __cplusplus
 }

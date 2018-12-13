@@ -9,13 +9,11 @@
 extern "C" {
 #endif
 
+#include "sort.h"
 #include "image.h"
 
-static PyObject *pModule, *pDict, *pFunc, *pInstance;
-
-void iot_talk(image im, person_box *person_boxes, int person_amount);
 void iot_init();
-void iot_send(std::vector<unsigned char> &outbuf, std::vector<person_box> &boxes);
+void iot_talk_send(std::vector<person_sort_det> &person_sort_dets, int &frame_stamp);
 
 #ifdef __cplusplus
 }

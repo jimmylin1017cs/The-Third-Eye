@@ -1,20 +1,44 @@
 #ifndef SORT_H
 #define SORT_H
 
-#include <Python.h>
+typedef struct{
+    int x1, y1, x2, y2;
+    float prob;
+} person_det;
 
-#include "box.h"
-#include "utils.h"
-#include "blas.h"
-#include "cuda.h"
-#include "image.h"
-#include <stdio.h>
-#include <math.h>
+typedef struct{
+    int id;
+    int x1, y1, x2, y2;
+} person_sort_det;
+
+typedef struct{
+    int id;
+    int x, y;
+} person_sort_compare_det;
 
 
-PyObject *pName, *pModule, *pDict, *pClass, *pInstance;
-void sortInitialization(int num, int class_num, int sort_freq);
-int sortUpdate(image im, box* detections, float** probs, int num, int classes, float thresh, int *sort_ids, int sort_freq, int filter_small_scale);
-void sort_cleanUp(int sort_freq);
-
+#ifdef __cplusplus
+extern "C" {
 #endif
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/time.h>
+
+#include "box.h" // I do not know why it can not put in the extern c
+#include "utils.h"
+#include "image.h"
+
+// in image.c
+image get_label(image **characters, char *string, int size);
+
+void draw_detections_with_sort_id(image im, box *boxes, float **probs, int num, float thresh, char **names, image **alphabet, int classes);
+int sort_update(image im, int num, float thresh, char **names, image **alphabet, int classes);
+void sort_init();
+void sort_cleanUp();
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // SORT_H

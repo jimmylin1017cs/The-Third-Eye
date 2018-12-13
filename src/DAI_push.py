@@ -13,31 +13,28 @@ from ast import literal_eval
 ServerURL = 'http://140.113.199.181:9999'
 Reg_addr = None #if None, Reg_addr = MAC address
 
-DAN.profile['dm_name']='Transmit_Frame'
-DAN.profile['df_list']=['IDF_Frame', 'ODF_Frame']
+DAN.profile['dm_name']='Transmit_Boxes'
+DAN.profile['df_list']=['IDF_Boxes', 'ODF_Boxes']
 DAN.profile['d_name']= None # None for autoNaming
 DAN.device_registration_with_retry(ServerURL, Reg_addr)
 
 #cv2.setUseOptimized(True)
 
-cap = cv2.VideoCapture('time_counter.flv')
+#cap = cv2.VideoCapture('time_counter.flv')
 
-
-def send_frame_to_iottalk(buf, boxes):
+def send_boxes_to_iottalk(boxes):
 
     #print(type(buf))
     #array = buf.tolist()
     #print(len(buf))
-    frame_string = str(buf)
-    person_information = json.dumps(boxes)
-    #print(person_information)
+    boxes_information = json.dumps(boxes)
+    print(boxes_information)
     #print(data)
     #print(len(data))
 
     try:
-        # @0: string
-        # @1: json
-        DAN.push ('IDF_Frame', frame_string,  person_information)
+        # @0: json
+        DAN.push('IDF_Boxes', boxes_information, boxes_information)
         print('push')
     except Exception as e:
         print(e)

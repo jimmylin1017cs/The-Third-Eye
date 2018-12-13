@@ -7,6 +7,7 @@
 #include "box.h"
 #include "image.h"
 #include "demo.h"
+#include "signal.h"
 #include <sys/time.h>
 
 #include "sort.h"
@@ -45,7 +46,7 @@ static float *avg;
 // when get SIGINT (interrupt) then doing
 void intHandler(int dummy)
 {
-    sort_cleanUp(1);
+    sort_cleanUp();
     exit(0);
 }
 // ---------------------------------
@@ -93,12 +94,14 @@ void *detect_in_thread(void *ptr)
     //draw_detections(det, l.w*l.h*l.n, demo_thresh, boxes, probs, demo_names, demo_alphabet, demo_classes);
 
     // ------------------------
-
+/*
     int sort_ids[l.w*l.h*l.n];
     int sort_ct = sortUpdate(det, boxes, probs, l.w*l.h*l.n, demo_classes, demo_thresh, sort_ids, 1, 0);
 
     det = draw_detections_sort(det, l.w*l.h*l.n, demo_thresh, boxes, probs, demo_names, demo_alphabet, demo_classes, sort_ids, sort_ct, "test.MTS", NULL);
-
+*/
+    // void draw_detections_with_sort_id(image im, box *boxes, float **probs, int num, float thresh, char **names, image **alphabet, int classes)
+    draw_detections_with_sort_id(det, boxes, probs, l.w*l.h*l.n, demo_thresh,  demo_names, demo_alphabet, demo_classes);
     // --------------------------------------
 
     return 0;
@@ -146,7 +149,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     // -----------------------------------------
     // catch Ctrl+C and call intHandler function
     signal(SIGINT, intHandler);
-    sortInitialization(l.w*l.h*l.n, l.classes, 1);
+    //sortInitialization(l.w*l.h*l.n, l.classes, 1);
     // -----------------------------------------
 
     avg = (float *) calloc(l.outputs, sizeof(float));

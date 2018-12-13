@@ -85,7 +85,10 @@ void free_image(image m);
 void test_resize(char *filename);
 
 
+// -------------------------------
 
+//image get_label(image **characters, char *string, int size);
+// -------------------------------
 
 
 

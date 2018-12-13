@@ -1,5 +1,7 @@
 # the-third-eye
 
+use darknet_v2 (old version)
+
 ![Darknet Logo](http://pjreddie.com/media/files/darknet-black-small.png)
 
 ## Darknet
