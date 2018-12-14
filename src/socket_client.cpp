@@ -1,34 +1,44 @@
+// ==============================
+// By Jimmy
+//
+// 2018/12/14
+//
+// 1. sort out code
+// ==============================
+
 #include "socket_client.h"
 
 #include "opencv2/opencv.hpp"
 
-typedef struct frame_with_stamp {
-    int frame_stamp;
-    std::vector<unsigned char> frame;
-} frame_with_stamp;
-
 class ClientSocket
 {
-    SOCKET client_sock;
+    SOCKET client_sock; // client fd
 
-    PORT server_port;
-    IP_ADDR server_ip;
+    PORT server_port; // server port number
+    IP_ADDR server_ip; // server ip address
 
-    int quality; // jpeg compression [1..100]
+    int quality; // jpeg compression [1..100], not use in here
 
+    // connect to server
+    //
     // @port: port number
+    //
+    // @return: connect sueecssful or not
+    //
     bool _connect(int server_port)
     {
         //std::cout<<"_connect"<<std::endl;
 
-        client_sock = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        // initial client fd
+        client_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
         SOCKADDR_IN address; // server address information
         address.sin_addr.s_addr = inet_addr(SERVER_IP); // server address for connecting
-        address.sin_family = AF_INET;
-        address.sin_port = htons(server_port);
+        address.sin_family = AF_INET; // tcp
+        address.sin_port = htons(server_port); // convert server port number to network format
 
-        if (::connect(client_sock, (struct sockaddr *)&address, sizeof(address)) == SOCKET_ERROR)
+        // connect to server
+        if (connect(client_sock, (struct sockaddr *)&address, sizeof(address)) == SOCKET_ERROR)
         {
             std::cerr << "error : couldn't connect on client sock " << client_sock << " on port " << server_port << " !" << std::endl;
             return _release();
@@ -37,35 +47,46 @@ class ClientSocket
         return true;
     }
 
-    // shutdown sock
+    // shutdown client socket
     bool _release()
     {
         if (client_sock != INVALID_SOCKET)
-            ::shutdown(client_sock, 2); // disable receive or send data, like close()
+            shutdown(client_sock, 2); // disable receive or send data, like close()
         client_sock = (INVALID_SOCKET);
         return false;
     }
 
-    // @send_sock: client socket
+
+    // ===============================================================================================================================
+    // ===================================================== Write Function ==========================================================
+    // ===============================================================================================================================
+
+    // send message to server
+    //
+    // @send_sock: server fd
     // @message: string of message
-    // @message_len: length of s
+    // @message_len: message length
+    // 
+    // @return: message length client already send
+    //
     int _write(int send_sock, std::string message, int message_len)
     {
         int send_len = 0;
-
-        //const char *buffer = message.c_str();
-
-        //while(send_len < message_len)
-        //{
-        //    send_len += send(send_sock, &buffer[send_len], message_len, 0);
-        //}
 
         send_len = send(send_sock, message.c_str(), message_len, 0);
 
         return send_len;
     }
 
-    int _write_frame(int &send_sock, std::vector<unsigned char> frame, int frame_len)
+    // send frame to server
+    //
+    // @send_sock: server fd
+    // @frame: frame data
+    // @frame_len: frame data length
+    // 
+    // @return: frame data length client already send
+    //
+    int _write_frame(int &send_sock, std::vector<uchar> frame, int frame_len)
     {
         int send_len = 0;
 
@@ -74,62 +95,187 @@ class ClientSocket
         return send_len;
     }
 
-    int _write_len(int send_sock, int messagee_len)
+    // send data length to server, then server known how many data it need to receive
+    //
+    // @send_sock: server fd
+    // @data_len: data length client need to send after
+    // 
+    // @return: data_len size (int is 4 bytes)
+    //
+    int _write_len(int send_sock, int data_len)
     {
         //std::cout<<"_write_len"<<std::endl;
 
         int send_len = 0;  
 
-        send_len = send(send_sock, &messagee_len, sizeof(int), 0);
+        send_len = send(send_sock, &data_len, sizeof(int), 0);
 
         return send_len;
     }
 
-    // @receive_sock
-    // @message_len
+    // ===============================================================================================================================
+    // ===================================================== Read Function ===========================================================
+    // ===============================================================================================================================
+
+    // receive message from server
+    //
+    // @receive_sock: server fd
+    // @message_len: message length
+    //
+    // @return: message
+    //
     std::string _read(int receive_sock, int message_len)
     {
-        std::string message;
-        message.clear(); // initial message
+        std::string message; // declare message string
+        message.clear(); // initial message string
 
-        int receive_len = 0;
-        int rest_len = message_len;
-        char buffer[BUFFER_MAX];
-        memset(buffer, '\0', sizeof(char) * BUFFER_MAX);
+        int receive_len = 0; // message length already receive
+        int rest_len = message_len; // message client need to receive
 
+        // receive message buffer, "......\0"
+        // +1 is for big data (4096), because it needs '\0' to decide string end
+        char buffer[BUFFER_MAX+1];
+        memset(buffer, '\0', sizeof(buffer)); // initial message buffer with '\0'
+
+        //std::cout<<"should receive: "<<message_len<<std::endl;
+
+        // BUFFER_MAX is define in the socket_header.h
         if(message_len <= BUFFER_MAX)
         {
+            // if message length is not larger than buffer size, it can just recevie one time
+            
+            // receive message into message buffer
             receive_len = recv(receive_sock, buffer, message_len, 0);
+            // add message
+            message += buffer;
         }
         else
         {
-            while(rest_len)
+            // if message length is larger than buffer size, it need to recevie many time until less than buffer size
+
+            // if message length client need to receive larger than zero, client need to receive again and again
+            while(rest_len > 0)
             {
                 if(rest_len <= BUFFER_MAX)
                 {
+                    // if message length is not larger than buffer size
+
+                    // receive message into message buffer
                     receive_len += recv(receive_sock, buffer, rest_len, 0);
+                    // update message length client need to receive
+                    rest_len = message_len - receive_len;
                 }
                 else
                 {
+                    // if message length is larger than buffer size
+
+                    // receive message into message buffer
                     receive_len += recv(receive_sock, buffer, BUFFER_MAX, 0);
+                    // update message length client need to receive
                     rest_len = message_len - receive_len;
                 }
 
+                // add message
                 message += buffer;
-                memset(buffer, '\0', sizeof(char) * BUFFER_MAX); // clear buffer for new message
+                // clear message buffer for receive new message
+                memset(buffer, '\0', sizeof(buffer));
+
+                //std::cout<<rest_len<<std::endl;
             }
         }
 
-        std::cout<<message<<std::endl;
+        //std::cout<<message<<" ("<<message.size()<<")"<<std::endl;
 
         return message;
     }
 
+    // receive frame data form server
+    //
+    // @receive_sock: server fd
+    // @frame_len: frame data length
+    //
+    // @return: frame data
+    //
+    std::vector<unsigned char> _read_frame(int receive_sock, int frame_len)
+    {
+        std::vector<unsigned char> frame; // declare frame data vector
+        frame.clear(); // initial frame data vector
+
+        int receive_len = 0; // frame data length already receive
+        int rest_len = frame_len; // frame data length client need to receive
+
+        // receive frame data buffer, "......\0"
+        // +1 is for big data (4096), because it needs '\0' to decide string end
+        unsigned char buffer[BUFFER_MAX+1]; 
+        memset(buffer, '\0', sizeof(buffer)); // initial frame data buffer with '\0'
+
+        //std::cout<<"should receive: "<<frame_len<<std::endl;
+
+        // BUFFER_MAX is define in the socket_header.h
+        if(frame_len <= BUFFER_MAX)
+        {
+            // if frame data length is not larger than buffer size, it can just recevie one time
+            
+            // receive frame in to frame data buffer
+            receive_len = recv(receive_sock, buffer, frame_len, 0);
+            // put all frame data in to frame data vector
+            frame.insert(frame.end(), buffer, buffer + frame_len);
+        }
+        else
+        {
+            // if frame data length is larger than buffer size, it need to recevie many time until less than buffer size
+
+            // if frame data length client need to receive larger than zero, client need to receive again and again
+            while(rest_len > 0)
+            {
+                if(rest_len <= BUFFER_MAX)
+                {
+                    // if frame data length is not larger than buffer size
+
+                    // receive frame into frame data buffer
+                    receive_len = recv(receive_sock, buffer, rest_len, 0);
+                    // update frame data length client need to receive
+                    rest_len -= receive_len;
+                }
+                else
+                {
+                    // if frame data length is larger than buffer size
+
+                    // receive frame into frame data buffer
+                    receive_len = recv(receive_sock, buffer, BUFFER_MAX, 0);
+                    // update frame data length client need to receive
+                    rest_len -= receive_len;
+                }
+
+                // put all frame data in to frame data vector
+                frame.insert(frame.end(), buffer, buffer + receive_len);
+                // clear frame data  buffer for receive new frame data
+                memset(buffer, '\0', sizeof(buffer));
+
+                //std::cout<<frame.size()<<std::endl;
+                //std::cout<<rest_len<<std::endl;
+                //std::cout<<receive_len<<std::endl;
+            }
+        }
+
+        //std::cout<<message<<" ("<<message.size()<<")"<<std::endl;
+
+        // return 
+        return frame;
+    }
+
+    // receive data length from server, then server known how many data it need to receive 
+    // 
+    // @receive_sock: server fd
+    //
+    // @return: data length
+    //
     int _read_len(int receive_sock)
     {
-        int message_len = 0;
-        recv(receive_sock, &message_len, sizeof(int), 0);
-        return message_len;
+        int data_len = 0;
+        recv(receive_sock, &data_len, sizeof(int), 0);
+
+        return data_len;
     }
 
 public:
@@ -163,6 +309,10 @@ public:
         return client_sock != INVALID_SOCKET;
     }
 
+    // ===============================================================================================================================
+    // ===================================================== Start Function ==========================================================
+    // ===============================================================================================================================
+
     // @s: constant pointer to a constant char for message
     /*bool start()
     {
@@ -178,22 +328,31 @@ public:
         return true;
     }*/
 
-    bool start(std::vector<unsigned char> frame)
+    // send frame data to server
+    //
+    // @frame: frame data
+    //
+    bool start_frame(std::vector<uchar> &frame)
     {
-        printf("frame size: %d\n", frame.size());
+        // frame data length client need to send
         int send_len = 0;
         send_len = _write_len(client_sock, frame.size());
+
+        printf("frame size: %d\n", frame.size());
         printf("send: %d\n", send_len);
 
-        if(send_len < 0) // server is cracked and send_len = -1
+        // if send_len is equal to -1 (less than zero), it is mean server is closed
+        if(send_len < 0) 
         {
             return false;
         }
 
+        // send frame data to server
         send_len = _write_frame(client_sock, frame, frame.size());
         printf("send: %d\n", send_len);
 
-        if(send_len < 0) // server is cracked and send_len = -1
+        // if send_len is equal to -1 (less than zero), it is mean server is closed
+        if(send_len < 0)
         {
             return false;
         }
@@ -201,24 +360,35 @@ public:
         return true;
     }
 
-    bool start(std::vector<unsigned char> frame, int frame_stamp)
+    // send frame data and frame stamp to server
+    //
+    // @frame: frame data
+    // @frame_stamp: frame stamp
+    //
+    bool start_frame_with_stamp(std::vector<unsigned char> frame, int frame_stamp)
     {
+        // send frame stamp to server
         _write_len(client_sock,frame_stamp);
 
-        printf("frame size: %d\n", frame.size());
+        // frame data length client need to send
         int send_len = 0;
         send_len = _write_len(client_sock, frame.size());
+
+        printf("frame size: %d\n", frame.size());
         printf("send: %d\n", send_len);
 
-        if(send_len < 0) // server is cracked and send_len = -1
+        // if send_len is equal to -1 (less than zero), it is mean server is closed
+        if(send_len < 0)
         {
             return false;
         }
 
+        // send frame data to server
         send_len = _write_frame(client_sock, frame, frame.size());
         printf("send: %d\n", send_len);
 
-        if(send_len < 0) // server is cracked and send_len = -1
+        // if send_len is equal to -1 (less than zero), it is mean server is closed
+        if(send_len < 0)
         {
             return false;
         }
@@ -227,6 +397,10 @@ public:
     }
 };
 
+
+// ===============================================================================================================================
+// =============================================== Function Call for Client ======================================================
+// ===============================================================================================================================
 
 /*int send_message(std::string ip, int port, int quality)
 {
@@ -237,7 +411,7 @@ public:
     return 0;
 }*/
 
-IplImage *image_to_ipl(image im)
+static IplImage *image_to_ipl(image im)
 {
     int x,y,c;
     IplImage *disp = cvCreateImage(cvSize(im.w,im.h), IPL_DEPTH_8U, im.c);
@@ -253,7 +427,7 @@ IplImage *image_to_ipl(image im)
     return disp;
 }
 
-cv::Mat image_to_mat(image im)
+static cv::Mat image_to_mat(image im)
 {
     image copy = copy_image(im);
     constrain_image(copy);
@@ -266,6 +440,19 @@ cv::Mat image_to_mat(image im)
     return m;
 }
 
+
+int send_frame(std::string ip, int port, int quality, std::vector<uchar> &frame)
+{
+    static ClientSocket client_socket(ip, port, quality);
+
+    if(!client_socket.start_frame(frame)) // check whether server is cracked
+    {
+        exit(EXIT_FAILURE);
+    }
+
+    return 0;
+}
+
 int send_frame(std::string ip, int port, int quality, image im, int frame_stamp)
 {
     static ClientSocket client_socket(ip, port, quality);
@@ -276,7 +463,7 @@ int send_frame(std::string ip, int port, int quality, image im, int frame_stamp)
     compression_params.push_back(quality);
     cv::imencode(".jpg", image_to_mat(im), frame, compression_params); // encodes an image into a memory buffer
 
-    if(!client_socket.start(frame, frame_stamp)) // check whether server is cracked
+    if(!client_socket.start_frame_with_stamp(frame, frame_stamp)) // check whether server is cracked
     {
         exit(EXIT_FAILURE);
     }
@@ -294,65 +481,10 @@ int send_frame(std::string ip, int port, int quality, image im)
     compression_params.push_back(quality);
     cv::imencode(".jpg", image_to_mat(im), frame, compression_params); // encodes an image into a memory buffer
 
-    if(!client_socket.start(frame)) // check whether server is cracked
+    if(!client_socket.start_frame(frame)) // check whether server is cracked
     {
         exit(EXIT_FAILURE);
     }
 
     return 0;
 }
-
-int send_frame(std::string ip, int port, int quality, std::vector<unsigned char> frame)
-{
-    static ClientSocket client_socket(ip, port, quality);
-
-    if(!client_socket.start(frame)) // check whether server is cracked
-    {
-        exit(EXIT_FAILURE);
-    }
-
-    return 0;
-}
-
-/*IplImage *image_to_ipl(image im)
-{
-    int x,y,c;
-    IplImage *disp = cvCreateImage(cvSize(im.w,im.h), IPL_DEPTH_8U, im.c);
-    int step = disp->widthStep;
-    for(y = 0; y < im.h; ++y){
-        for(x = 0; x < im.w; ++x){
-            for(c= 0; c < im.c; ++c){
-                float val = im.data[c*im.h*im.w + y*im.w + x];
-                disp->imageData[y*step + x*im.c + c] = (unsigned char)(val*255);
-            }
-        }
-    }
-    return disp;
-}
-
-cv::Mat image_to_mat(image im)
-{
-    image copy = copy_image(im);
-    constrain_image(copy);
-    if(im.c == 3) rgbgr_image(copy);
-
-    IplImage *ipl = image_to_ipl(copy);
-    cv::Mat m = cv::cvarrToMat(ipl, true);
-    cvReleaseImage(&ipl);
-    free_image(copy);
-    return m;
-}*/
-
-/*
-void send_mjpeg(image im, int port, int timeout, int quality) {
-    
-    // create only one MJPGWriter object
-    static JSONServer mjpeg_writer(port, timeout, quality);
-
-    cv::Mat mat;
-
-    cv::resize(image_to_mat(im), mat, cv::Size(1352, 1013));
-
-    mjpeg_writer.write(mat);
-}
-*/

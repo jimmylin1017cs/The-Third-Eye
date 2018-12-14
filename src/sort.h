@@ -16,7 +16,6 @@ typedef struct{
     int x, y;
 } person_sort_compare_det;
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -33,8 +32,8 @@ extern "C" {
 image get_label(image **characters, char *string, int size);
 
 void draw_detections_with_sort_id(image im, box *boxes, float **probs, int num, float thresh, char **names, image **alphabet, int classes);
-int sort_update(image im, int num, float thresh, char **names, image **alphabet, int classes);
 void sort_init();
+int sort_update(image im, int num, float thresh, char **names, image **alphabet, int classes);
 void sort_cleanUp();
 
 #ifdef __cplusplus

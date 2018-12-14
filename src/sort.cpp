@@ -1,4 +1,6 @@
 #include "sort.h"
+#include "DAI_push.h"
+#include "socket_client.h"
 
 #include <cstdlib>
 #include <cstdio>
@@ -7,8 +9,6 @@
 #include <vector>
 #include <algorithm>
 #include <Python.h>
-#include "DAI_push.h"
-#include "socket_client.h"
 
 #define PERSON_ONLY 1
 #define SORT_FREQ 1 // sort update frequency
@@ -22,10 +22,6 @@
     }
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // update by sort_update()
 static std::vector<person_det> person_dets; // store new dets
 static std::vector<person_sort_det> person_sort_dets; // store new dets
@@ -35,6 +31,10 @@ static int first_called = 1;
 static int frame_stamp = 0;
 
 static PyObject *pName, *pModule, *pDict, *pClass, *pTracker, *pTrackerRet, *pInstance;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void draw_detections_with_sort_id(image im, box *boxes, float **probs, int num, float thresh, char **names, image **alphabet, int classes)
 //void draw_detections_with_sort_id(image im, detection *dets, int num, float thresh, char **names, image **alphabet, int classes)
@@ -99,6 +99,21 @@ void draw_detections_with_sort_id(image im, box *boxes, float **probs, int num, 
     // send frame
     send_frame("140.113.86.135", 8091, 95, im, frame_stamp);
 
+    float red = 0;
+    float green = 255;
+    float blue = 0;
+
+    float rgb[3];
+    rgb[0] = red;
+    rgb[1] = green;
+    rgb[2] = blue;
+
+    // draw frame stamp on the image
+    char frame_stamp_label_str[4096] = {0};
+    sprintf(frame_stamp_label_str, "%d", frame_stamp);
+    image frame_stamp_label = get_label(alphabet, frame_stamp_label_str, (im.h*.03));
+    draw_label(im, 0, 0, frame_stamp_label, rgb);
+
     for(int i = 0; i < person_num; ++i)
     {
         char labelstr[4096] = {0};
@@ -116,15 +131,6 @@ void draw_detections_with_sort_id(image im, box *boxes, float **probs, int num, 
         // store box center for comparing
         person_sort_compare_det tmp_pscd = { id, left + (right - left) / 2, top + (bot - top) / 2 };
         person_sort_compare_dets.push_back(tmp_pscd);
-
-        float red = 0;
-        float green = 255;
-        float blue = 0;
-
-        float rgb[3];
-        rgb[0] = red;
-        rgb[1] = green;
-        rgb[2] = blue;
 
         int width = im.h * .006;
         draw_box_width(im, left, top, right, bot, width, red, green, blue);
@@ -159,7 +165,6 @@ void sort_init()
     }
 }
 
-//int sort_update(image im, box* detections, float** probs, int num, int classes, float thresh, int *sort_ids, int sort_freq, int filter_small_scale){
 int sort_update(image im, int num, float thresh, char **names, image **alphabet, int classes)
 {
     if(first_called)
