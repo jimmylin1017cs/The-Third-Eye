@@ -101,6 +101,7 @@ void *detect_in_thread(void *ptr)
     det = draw_detections_sort(det, l.w*l.h*l.n, demo_thresh, boxes, probs, demo_names, demo_alphabet, demo_classes, sort_ids, sort_ct, "test.MTS", NULL);
 */
     // void draw_detections_with_sort_id(image im, box *boxes, float **probs, int num, float thresh, char **names, image **alphabet, int classes)
+    det = resize_image(det, 1280, 720);
     draw_detections_with_sort_id(det, boxes, probs, l.w*l.h*l.n, demo_thresh,  demo_names, demo_alphabet, demo_classes);
     // --------------------------------------
 
@@ -189,11 +190,11 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     }*/
 
     // --------------------------------------------
-    if(!prefix){
+    /*if(!prefix){
         cvNamedWindow("Demo", CV_WINDOW_NORMAL); 
         cvMoveWindow("Demo", 0, 0);
         cvResizeWindow("Demo", 800, 600);
-    }
+    }*/
     // --------------------------------------------
 
     double before = get_wall_time();
@@ -205,7 +206,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             if(pthread_create(&detect_thread, 0, detect_in_thread, 0)) error("Thread creation failed");
 
             if(!prefix){
-                show_image(disp, "Demo");
+                //show_image(disp, "Demo");
                 int c = cvWaitKey(1);
                 if (c == 10){
                     if(frame_skip == 0) frame_skip = 60;
