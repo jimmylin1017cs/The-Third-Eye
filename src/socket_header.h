@@ -26,7 +26,7 @@
 
 #define BUFFER_MAX 4096
 
-#define SERVER_IP "140.113.86.135"
+#define SERVER_IP "127.0.0.1"
 #define IP_ADDR std::string
 
 #endif

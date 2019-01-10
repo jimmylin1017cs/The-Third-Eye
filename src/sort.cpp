@@ -97,7 +97,7 @@ void draw_detections_with_sort_id(image im, box *boxes, float **probs, int num, 
     iot_talk_send(person_sort_dets, frame_stamp);
 
     // send frame
-    send_frame("140.113.86.135", 8091, 95, im, frame_stamp);
+    send_frame(SERVER_IP, 8091, 95, im, frame_stamp);
 
     float red = 0;
     float green = 255;
