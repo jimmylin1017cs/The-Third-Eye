@@ -4,7 +4,7 @@
 
 - SORT
   - sort.h
-  - sort.cpp
+  - sort.c
   - [sort.py](https://github.com/abewley/sort/blob/master/sort.py)
   - sort.pyc
 - IoT Talk
